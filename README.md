@@ -11,7 +11,7 @@ This repo is the frontend. The API, including the AI and embedding logic, lives 
 - **Journaling:** write on a blank page or choose from **AI-generated prompts tailored to your habits and recurring themes**
 - **AI feedback** on entries, rendered as Markdown
 - **Two kinds of habit:**
-  - Standard habits (e.g. *"Read for 20 minutes"*)
+  - Standard habits (e.g. *Name + Description*)
   - Trigger → action habits based on implementation intentions: *"When I **[trigger]**, I will **[action]**"*
 - **Habit tracking:** colour-coded habits, daily completion, history view, and **current and longest streaks**
 
@@ -75,6 +75,6 @@ Scan the QR code with Expo Go, or press `a` / `i` to open an emulator.
 
 ## What I'd improve next
 
-- Add component and service tests (Jest is configured, but there's only a starter test)
-- Add unit tests for the streak calculation, the most logic-heavy part of the frontend
-- Better offline and error states when the API is unreachable
+- Add component and service tests.
+- Add unit tests for the streak calculation.
+- Better offline and error states when the API is unreachable.
