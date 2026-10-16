@@ -1,75 +1,80 @@
-# One Percent - React Native Frontend (University Final Year Project)
+# One Percent: React Native App
 
-This repository contains the React Native frontend for *One Percent*, a self-development app built to support habit tracking and reflective journaling, with personalised feebdack powered by a Large Language Model (LLM).
+Mobile app for **One Percent**, a self-development app for habit tracking and reflective journaling, with personalised feedback from a large language model. Built as my final year project (BSc Computer Science, Birmingham City University, 2025).
 
-## Features 
+This repo is the frontend. The API, including the AI and embedding logic, lives here: **[fyp_one_percent_spring (Spring Boot)](https://github.com/kailau1/fyp_one_percent_spring)**
 
-- Secure user login and registration
-- Journal entry creation with AI-generated feedback
-- Prompt selection using embedding-based context
-- Habit creation, streak tracking, and completion history
-- Local session persistence using AsyncStorage
-- Clean and responsive UI built with Expo and React Native
+## Features
 
-## Technologies Used
+- **Login and sign-up** with JWT auth; sessions persist on the device with AsyncStorage
+- **Dashboard:** personalised greeting, an AI-generated tip of the day, today's habits, and two ways to start journaling
+- **Journaling:** write on a blank page or choose from **AI-generated prompts tailored to your habits and recurring themes**
+- **AI feedback** on entries, rendered as Markdown
+- **Two kinds of habit:**
+  - Standard habits (e.g. *"Read for 20 minutes"*)
+  - Trigger → action habits based on implementation intentions: *"When I **[trigger]**, I will **[action]**"*
+- **Habit tracking:** colour-coded habits, daily completion, history view, and **current and longest streaks**
 
-- React Native (with Expo)
-- JavaScript / TypeScript
-- Context API
-- AsyncStorage
-- Expo Router
+## How it fits together
 
-## Project Structure
+```mermaid
+flowchart LR
+    App["This app<br/>(Expo / React Native)"] -- "REST + JWT" --> API["Spring Boot API"]
+    API --> DB[("MongoDB")]
+    API --> OAI["OpenAI API"]
+```
 
-- `app/` – All screens and routing logic
-- `contexts/` – Global state management (user, habits, journals)
-- `services/` – API service wrappers
-- `components/` – Reusable UI components
-- `utils/` – Helper functions
+All AI calls go through the backend, so no API keys are shipped in the app.
 
-## Getting Started
+## Tech stack
+
+React Native 0.76 · Expo SDK 52 · Expo Router · TypeScript · React Context API · AsyncStorage · React Native Paper · react-native-markdown-display
+
+## Project structure
+
+```
+app/                 Screens and routing (Expo Router)
+  auth/              Login and sign-up
+  main/              Dashboard, journals, habits
+components/          Reusable UI and modals (habit, journal entry, history)
+context/             Global state: user, habits, journals
+scripts/services/    API clients for users, habits, journals and AI
+scripts/calculateStreak.ts   Current and longest streak calculation
+```
+
+## Running locally
 
 ### Prerequisites
+- Node.js and npm
+- The Expo Go app on your phone (or an Android/iOS emulator)
+- The [backend](https://github.com/kailau1/fyp_one_percent_spring) running on your machine
 
-- Node.js
-- Expo CLI
-
-### Running the App
-
-1. Clone the repository:
-
-```
+### 1. Clone and install
+```bash
 git clone https://github.com/kailau1/fyp_one_percent
 cd fyp_one_percent
-```
-
-2. Install dependencies:
-
-```
 npm install
 ```
 
-3. Start the development server:
+### 2. Point the app at your backend
+The app reads the API address from `extra.BASE_URL` in `app.json`. Your phone needs your computer's **local network IP**, not `localhost`.
 
-```
-npx expo start -- --tunnel
-```
-> Make sure the [Spring Boot backend](https://github.com/kailau1/fyp_one_percent_spring) is running locally and reachable from your device.
+Find it with `ipconfig` (Windows) or `ifconfig` / `ip addr` (macOS/Linux), then update `app.json`:
 
-The backend will run on your local network ipv4 address:
-
-In windows powershell / temrinal run
-
-```
-ipconfig
+```json
+"extra": {
+  "BASE_URL": "http://<your-local-ip>:8084"
+}
 ```
 
-Copy your ipv4 address and paste it into the "BASE_URL" field within one_percent/app.json
+### 3. Start the app
+```bash
+npx expo start --tunnel
+```
+Scan the QR code with Expo Go, or press `a` / `i` to open an emulator.
 
+## What I'd improve next
 
-4. Scan the QR code with the Expo Go app or open it in an emulator.
-
-
-## Related Repositories
-
-- [Backend (Spring Boot)](https://github.com/kailau1/fyp_one_percent_spring)
+- Add component and service tests (Jest is configured, but there's only a starter test)
+- Add unit tests for the streak calculation, the most logic-heavy part of the frontend
+- Better offline and error states when the API is unreachable
