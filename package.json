@@ -8,11 +8,21 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "jest --watchAll",
-    "lint": "expo lint"
+    "test": "jest --watch",
+    "lint": "expo lint",
+    "test:ci": "jest --ci"
   },
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "globalSetup": "./jest.globalSetup.js",
+    "setupFilesAfterEnv": [
+      "./jest.setup.ts"
+    ],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/$1"
+    },
+    "testTimeout": 30000,
+    "maxWorkers": "50%"
   },
   "dependencies": {
     "@expo-google-fonts/comfortaa": "^0.2.3",
@@ -57,6 +67,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@testing-library/react-native": "^12.9.0",
     "@types/jest": "^29.5.12",
     "@types/jwt-decode": "^2.2.1",
     "@types/react": "~18.3.12",
