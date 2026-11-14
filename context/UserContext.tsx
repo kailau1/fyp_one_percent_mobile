@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
@@ -13,6 +13,8 @@ export interface User {
 interface UserContextProps {
     user: User | null;
     setUser: (user: User | null) => void;
+    /** Forgets the stored session (the caller decides where to navigate). */
+    logout: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextProps | undefined>(undefined);
@@ -34,8 +36,17 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loadUser();
       }, []);
 
+    const logout = useCallback(async () => {
+        setUser(null);
+        try {
+            await AsyncStorage.removeItem('user');
+        } catch (err) {
+            console.error('Failed to clear stored user:', err);
+        }
+    }, []);
+
     return (
-        <UserContext.Provider value={{ user, setUser }}>
+        <UserContext.Provider value={{ user, setUser, logout }}>
             {children}
         </UserContext.Provider>
     );

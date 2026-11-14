@@ -10,6 +10,7 @@ import { UserProvider } from '@/context/UserContext';
 import { HabitsProvider} from '@/context/HabitsContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { JournalsProvider } from '@/context/JournalsContext';
+import SessionGuard from '@/components/SessionGuard';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -37,6 +38,7 @@ export default function RootLayout() {
       <HabitsProvider>
         <JournalsProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <SessionGuard />
           <Stack>
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="auth/sign-up" options={{ headerShown: false }} />
