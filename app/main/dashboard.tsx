@@ -1,58 +1,62 @@
 import React from 'react';
-import { StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import BottomNav from '@/components/ui/BottomNav';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import Divider from '@/components/ui/Divider';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@/context/UserContext';
 import { useLocalSearchParams } from 'expo-router';
 import { useHabits } from '@/context/HabitsContext';
 import { fetchTipOfTheDay } from '@/scripts/services/openaiService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import ErrorState from '@/components/ui/ErrorState';
+import { ApiError, toApiError } from '@/scripts/services/apiClient';
 
 
 export default function DashboardScreen() {
-  const { habits } = useHabits();
+  const { habits, habitsLoading, habitsError, fetchHabits } = useHabits();
   const router = useRouter();
   const { user } = useUser();
   const { fresh } = useLocalSearchParams();
   const welcomeTitle = fresh === 'true' ? 'Welcome,' : 'Welcome back,';
-  const [tip, setTip] = useState<string>('Loading tip...');
-  const [tipError, setTipError] = useState<string | null>(null);
+  const [tip, setTip] = useState<string | null>(null);
+  const [tipError, setTipError] = useState<ApiError | null>(null);
+  const [tipLoading, setTipLoading] = useState(false);
 
-  useEffect(() => {
-    const getCachedTip = async () => {
-      try {
+  const loadTip = useCallback(async (skipCache = false) => {
+    if (!user?.token) return;
+    setTipLoading(true);
+    setTipError(null);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      if (!skipCache) {
         const cachedTip = await AsyncStorage.getItem('tipOfTheDay');
         const cachedDate = await AsyncStorage.getItem('tipOfTheDayDate');
-        const today = new Date().toISOString().split('T')[0];
         if (cachedTip && cachedDate === today) {
           setTip(cachedTip);
-        } else {
-          if (!user?.token) return;
-          const result = await fetchTipOfTheDay(user.token);
-          console.log('Tip result:', result);
-          if (result.error) {
-            setTipError('Could not load tip. Please try again.');
-          } else {
-            if (result.response) {
-              setTip(result.response);
-              await AsyncStorage.setItem('tipOfTheDay', result.response);
-              await AsyncStorage.setItem('tipOfTheDayDate', today);
-            }
-          }
-
+          return;
         }
-      } catch (err) {
-        setTipError('Error loading tip.');
-        console.error('Tip cache error:', err);
       }
-    };
-
-    getCachedTip();
+      const result = await fetchTipOfTheDay(user.token);
+      if (result.error) {
+        setTipError(new ApiError(result.offline ? 'network' : 'unknown', result.error));
+      } else if (result.response) {
+        setTip(result.response);
+        await AsyncStorage.setItem('tipOfTheDay', result.response);
+        await AsyncStorage.setItem('tipOfTheDayDate', today);
+      }
+    } catch (err) {
+      setTipError(toApiError(err));
+    } finally {
+      setTipLoading(false);
+    }
   }, [user?.token]);
+
+  useEffect(() => {
+    loadTip();
+  }, [loadTip]);
 
   return (
     <ThemedView style={styles.container}>
@@ -62,9 +66,17 @@ export default function DashboardScreen() {
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <ThemedView style={styles.card}>
           <ThemedText style={styles.cardTitle}>Tip of the Day</ThemedText>
-          <ThemedText style={styles.tipText}>
-            {tipError ? tipError : tip}
-          </ThemedText>
+          {tipError ? (
+            <ErrorState
+              compact
+              testID="tip-error"
+              error={tipError}
+              onRetry={() => loadTip(true)}
+              retrying={tipLoading}
+            />
+          ) : (
+            <ThemedText style={styles.tipText}>{tip ?? 'Loading tip...'}</ThemedText>
+          )}
         </ThemedView>
         <ThemedView style={[styles.card]}>
           <ThemedText style={styles.cardTitle}>
@@ -81,11 +93,24 @@ export default function DashboardScreen() {
         </ThemedView>
         <ThemedView style={styles.card}>
           <ThemedText style={styles.cardTitle}>Habits</ThemedText>
+          {habitsError && (
+            <ErrorState
+              compact
+              testID="habits-error"
+              error={habitsError}
+              onRetry={() => user?.token && fetchHabits(user.token)}
+              retrying={habitsLoading}
+            />
+          )}
           {habits.length === 0 ? (
-            <ThemedView>
-              <ThemedText>No habits yet. Add one to get started!</ThemedText>
-              <ThemedText style={styles.addButtonText}>+</ThemedText>
-            </ThemedView>
+            habitsLoading ? (
+              <ActivityIndicator color="#74B7E2" testID="habits-loading" />
+            ) : habitsError ? null : (
+              <ThemedView>
+                <ThemedText>No habits yet. Add one to get started!</ThemedText>
+                <ThemedText style={styles.addButtonText}>+</ThemedText>
+              </ThemedView>
+            )
           ) : (
             habits.map((habit) => (
               <ThemedView key={habit.id} style={{ marginBottom: 10, backgroundColor: '#E4EAF2' }}>

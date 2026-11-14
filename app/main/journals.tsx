@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   View,
   Modal,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import BottomNav from '@/components/ui/BottomNav';
 import { ThemedView } from '@/components/ThemedView';
@@ -17,10 +19,12 @@ import { useUser } from '@/context/UserContext';
 import { deleteJournalEntry } from '@/scripts/services/journalService';
 import { MaterialIcons } from '@expo/vector-icons';
 import { fetchJournalingPrompts } from '@/scripts/services/openaiService';
+import ErrorState from '@/components/ui/ErrorState';
+import { ApiError, getErrorMessage } from '@/scripts/services/apiClient';
 
 
 export default function JournalScreen() {
-  const { journals, fetchJournals } = useJournals();
+  const { journals, setJournals, journalsLoading, journalsError, fetchJournals } = useJournals();
   const { user } = useUser();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalStep, setModalStep] = useState<'picker' | 'entry'>('picker');
@@ -31,6 +35,7 @@ export default function JournalScreen() {
   const { openModal, option, step } = useLocalSearchParams();
   const [promptOptions, setPromptOptions] = useState<string[]>([]);
   const [loadingPrompts, setLoadingPrompts] = useState(false);
+  const [promptsError, setPromptsError] = useState<ApiError | null>(null);
 
 
   useEffect(() => {
@@ -47,28 +52,27 @@ export default function JournalScreen() {
 
 
   const handleDeleteJournal = async (journalId: string) => {
+    if (!user) return;
+    setOptionsVisible(null);
     try {
-      if (user) {
-        await deleteJournalEntry(journalId, user.token);
-        fetchJournals(user.token);
-        setOptionsVisible(null);
-      }
+      await deleteJournalEntry(journalId, user.token);
+      setJournals((prev) => prev.filter((j) => j.id !== journalId));
     } catch (error) {
-      console.error('Error deleting journal:', error);
+      Alert.alert("Couldn't delete entry", getErrorMessage(error));
     }
   };
 
   const loadPrompts = async () => {
     if (!user?.token) return;
     setLoadingPrompts(true);
-    const { error, prompts } = await fetchJournalingPrompts(user.token, user.id);
+    setPromptsError(null);
+    const { error, offline, prompts } = await fetchJournalingPrompts(user.token, user.id);
     setLoadingPrompts(false);
 
-    if (!error) {
-      const promptArray = prompts.filter(p => p.trim() !== '');
-      setPromptOptions(promptArray);
+    if (error) {
+      setPromptsError(new ApiError(offline ? 'network' : 'unknown', error));
     } else {
-      console.error('Error fetching prompts:', error);
+      setPromptOptions(prompts);
     }
   };
 
@@ -117,6 +121,20 @@ export default function JournalScreen() {
             <ThemedText style={styles.typeText}>Write with Prompts</ThemedText>
           </TouchableOpacity>
         </ThemedView>
+
+        {journalsError && (
+          <ErrorState
+            compact
+            testID="journals-error"
+            error={journalsError}
+            onRetry={() => user?.token && fetchJournals(user.token)}
+            retrying={journalsLoading}
+          />
+        )}
+        {journals.length === 0 && journalsLoading && <ActivityIndicator color="#74B7E2" testID="journals-loading" />}
+        {journals.length === 0 && !journalsLoading && !journalsError && (
+          <ThemedText style={styles.emptyText}>No entries yet. Start one above!</ThemedText>
+        )}
 
         {[...journals]
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -180,6 +198,13 @@ export default function JournalScreen() {
                   </View>
                   {loadingPrompts ? (
                     <ThemedText style={{ textAlign: 'center', marginTop: 10 }}>Loading prompts...</ThemedText>
+                  ) : promptsError ? (
+                    <>
+                      <ErrorState testID="prompts-error" error={promptsError} onRetry={loadPrompts} />
+                      <TouchableOpacity onPress={() => setModalStep('entry')}>
+                        <ThemedText style={styles.skipText}>Write without a prompt instead</ThemedText>
+                      </TouchableOpacity>
+                    </>
                   ) : (
                     <ScrollView style={{ marginTop: 10 }}>
                       {promptOptions.map((prompt, index) => (
@@ -318,6 +343,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Comfortaa_400Regular',
   },
   optionsButton: { marginRight: 10 },
+  emptyText: {
+    textAlign: 'center',
+    fontFamily: 'Comfortaa_400Regular',
+    fontSize: 16,
+    marginVertical: 20,
+  },
+  skipText: {
+    textAlign: 'center',
+    fontFamily: 'Comfortaa_700Bold',
+    color: '#8E44AD',
+    marginTop: 4,
+  },
   optionsMenu: {
     position: 'absolute',
     top: 40,

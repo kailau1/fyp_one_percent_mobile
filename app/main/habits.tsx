@@ -1,4 +1,4 @@
-import { ScrollView, Switch, StyleSheet, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
+import { ScrollView, Switch, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Alert, ActivityIndicator } from 'react-native';
 import { useState } from 'react';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -6,7 +6,9 @@ import BottomNav from '@/components/ui/BottomNav';
 import { completeHabit, uncompleteHabit, updateHabit, deleteHabit } from '@/scripts/services/habitService';
 import { ProgressBar } from 'react-native-paper';
 import { useUser } from '@/context/UserContext';
-import { useHabits } from '@/context/HabitsContext';
+import { useHabits, Habit } from '@/context/HabitsContext';
+import ErrorState from '@/components/ui/ErrorState';
+import { getErrorMessage } from '@/scripts/services/apiClient';
 import { useRouter } from 'expo-router';
 import Divider from '@/components/ui/Divider';
 import { Feather } from '@expo/vector-icons';
@@ -17,7 +19,7 @@ import HabitHistoryModal from '@/components/modals/HabitHistoryModal';
 export default function HabitsScreen() {
   const { user } = useUser();
   const router = useRouter();
-  const { habits, setHabits } = useHabits();
+  const { habits, setHabits, habitsLoading, habitsError, fetchHabits } = useHabits();
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null);
   const [selectedColour, setSelectedColour] = useState<string>('');
@@ -26,17 +28,6 @@ export default function HabitsScreen() {
   const [isAddHabitVisible, setIsAddHabitVisible] = useState(false);
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const colourCodes: string[] = ["#A7C7E7", "#B4E197", "#F8C8DC", "#D6A4E7", "#FDFD96", "#FFD1A9", "#AAF0D1", "#E3D4FC", "#FCA3B7", "#AEEDEE"];
-
-  interface Habit {
-    id: string;
-    habitName?: string;
-    description?: string;
-    trigger?: string;
-    action?: string;
-    habitType: 'standard' | 'trigger-action';
-    colour: string;
-    completed: boolean;
-  }
 
   const handleUpdateHabit = async () => {
     if (!selectedHabit || !user) return;
@@ -50,64 +41,42 @@ export default function HabitsScreen() {
 
     try {
       const updated = await updateHabit(updatedHabit, user.token);
-
-      if (updated) {
-        setHabits((prevHabits) =>
-          prevHabits.map((habit) =>
-            habit.id === updated.id ? updated : habit
-          )
-        );
-        toggleOverlay();
-      } else {
-        alert("Failed to update habit.");
-      }
+      setHabits((prevHabits) => prevHabits.map((habit) => (habit.id === updated.id ? updated : habit)));
+      toggleOverlay();
     } catch (error) {
-      console.error('Error updating habit:', error);
-      alert('Failed to update habit. Please try again.');
+      Alert.alert("Couldn't update habit", getErrorMessage(error));
     }
   };
 
   const handleDeleteHabit = async () => {
-    if (!selectedHabit || !user) {
-      alert("No habit selected or user not authenticated.");
-      return;
-    }
+    if (!selectedHabit || !user) return;
 
     try {
-      const success = await deleteHabit(selectedHabit.id, user.token);
-
-      if (success) {
-        setHabits((prevHabits) =>
-          prevHabits.filter((habit) => habit.id !== selectedHabit.id)
-        );
-        toggleOverlay();
-      } else {
-        alert("Failed to delete habit. Please try again.");
-      }
+      await deleteHabit(selectedHabit.id, user.token);
+      setHabits((prevHabits) => prevHabits.filter((habit) => habit.id !== selectedHabit.id));
+      toggleOverlay();
     } catch (error) {
-      console.error("Error deleting habit:", error);
-      alert("An error occurred while deleting the habit. Please try again.");
+      Alert.alert("Couldn't delete habit", getErrorMessage(error));
     }
   };
 
-  const handleToggle = async (id: string, completed: boolean) => {
-    setHabits((prevHabits) =>
-      prevHabits.map((habit) =>
-        habit.id === id ? { ...habit, completed: !habit.completed } : habit
-      )
-    );
+  const setCompleted = (id: string, completed: boolean) =>
+    setHabits((prevHabits) => prevHabits.map((habit) => (habit.id === id ? { ...habit, completed } : habit)));
 
+  const handleToggle = async (id: string, completed: boolean) => {
+    if (!user) return;
+    // Optimistic update: flip immediately, then undo if the server call fails, so the
+    // switch never shows a state that wasn't actually saved.
+    setCompleted(id, !completed);
     try {
-      if (user) {
-        if (completed) {
-          await uncompleteHabit(id, user.token);
-        } else {
-          await completeHabit(id, user.token);
-        }
+      if (completed) {
+        await uncompleteHabit(id, user.token);
+      } else {
+        await completeHabit(id, user.token);
       }
     } catch (error) {
-      console.error('Error toggling habit:', error);
-      alert('Failed to toggle habit. Please try again.');
+      setCompleted(id, completed);
+      Alert.alert("Couldn't update habit", getErrorMessage(error));
     }
   };
 
@@ -164,7 +133,21 @@ export default function HabitsScreen() {
         />
       </ThemedView>
 
+      {habitsError && (
+        <ErrorState
+          compact
+          testID="habits-error"
+          error={habitsError}
+          onRetry={() => user?.token && fetchHabits(user.token)}
+          retrying={habitsLoading}
+        />
+      )}
+
       <ScrollView contentContainerStyle={styles.habitsList}>
+        {habits.length === 0 && habitsLoading && <ActivityIndicator color="#74B7E2" testID="habits-loading" />}
+        {habits.length === 0 && !habitsLoading && !habitsError && (
+          <ThemedText style={styles.emptyText}>No habits yet. Tap + to add your first one.</ThemedText>
+        )}
         {habits.map((habit) => (
           <TouchableOpacity
             key={habit.id}
@@ -186,6 +169,7 @@ export default function HabitsScreen() {
 
             <TouchableWithoutFeedback onPressIn={() => handleToggle(habit.id, habit.completed)}>
               <Switch
+                testID={`habit-switch-${habit.id}`}
                 trackColor={{ false: '#E0E0E0', true: '#81C784' }}
                 thumbColor={habit.completed ? '#4CAF50' : '#FFF'}
                 value={habit.completed}
@@ -309,6 +293,12 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
     marginBottom: 10,
+  },
+  emptyText: {
+    textAlign: 'center',
+    fontFamily: 'Comfortaa_400Regular',
+    fontSize: 16,
+    marginVertical: 20,
   },
   habitText: {
     fontSize: 18,

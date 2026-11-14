@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  Alert,
 } from 'react-native';
 import { useJournals } from '@/context/JournalsContext';
 import { useUser } from '@/context/UserContext';
@@ -20,6 +21,8 @@ import { ThemedText } from '@/components/ThemedText';
 import ButtonCTA from '@/components/ui/ButtonCTA';
 import Divider from '@/components/ui/Divider';
 import Markdown from 'react-native-markdown-display';
+import ErrorState from '@/components/ui/ErrorState';
+import { ApiError, toApiError } from '@/scripts/services/apiClient';
 
 interface JournalEntryScreenProps {
   onClose: () => void;
@@ -33,6 +36,9 @@ export default function JournalEntryScreen({ onClose, journalId, initialContent 
   const [aiFeedback, setAiFeedback] = useState('');
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<ApiError | null>(null);
+  const [feedbackError, setFeedbackError] = useState<ApiError | null>(null);
   const [isEditing, setIsEditing] = useState(journalId ? false : true);
   const { user } = useUser();
   const { journals, fetchJournals } = useJournals();
@@ -64,6 +70,8 @@ export default function JournalEntryScreen({ onClose, journalId, initialContent 
       return;
     }
 
+    setSaving(true);
+    setSaveError(null);
     try {
       if (journalId) {
         await updateJournalEntry(journalId, journalTitle, journalContent, user.token, aiFeedback);
@@ -73,43 +81,34 @@ export default function JournalEntryScreen({ onClose, journalId, initialContent 
       fetchJournals(user.token);
       onClose();
     } catch (error) {
-      console.error('Error saving journal:', error);
+      // Stay open so the entry isn't lost. Previously the modal closed and the text was gone.
+      setSaveError(toApiError(error));
+    } finally {
+      setSaving(false);
     }
   };
 
   const getAiFeedback = async () => {
     if (!journalContent.trim()) {
-      alert("Write something before requesting AI feedback!");
+      Alert.alert('Nothing to review yet', 'Write something before requesting AI feedback!');
       return;
     }
-  
+    if (!user) return;
+
     setLoading(true);
-    setAiFeedback('');
-  
-    try {
-      if (!user) throw new Error("User is not logged in");
-  
-      const response = await fetchOpenAIResponse(
-        journalId ?? '',
-        journalContent,
-        user.id,
-        user.token, 
-      );
-  
-      if (response.error) throw new Error(response.error);
-  
-      setAiFeedback(response.response || 'No feedback available.');
-      setShowFeedbackModal(true);
-  
-    } catch (error) {
-      console.error("Error fetching AI feedback:", error);
-      setAiFeedback("Failed to get feedback. Please try again.");
-      setShowFeedbackModal(true);
-    } finally {
-      setLoading(false);
+    setFeedbackError(null);
+
+    const response = await fetchOpenAIResponse(journalId ?? '', journalContent, user.token);
+    setLoading(false);
+
+    if (response.error) {
+      // Kept separate from aiFeedback: the error text used to be saved into the journal *as* feedback.
+      setFeedbackError(new ApiError(response.offline ? 'network' : 'unknown', response.error));
+      return;
     }
+    setAiFeedback(response.response || 'No feedback available.');
+    setShowFeedbackModal(true);
   };
-  
 
   const markdownStyles = {
     text: {
@@ -134,8 +133,8 @@ export default function JournalEntryScreen({ onClose, journalId, initialContent 
                 </ThemedText>
               </TouchableOpacity>
             )}
-            <TouchableOpacity onPress={handleSave}>
-              <ThemedText style={styles.completeText}>Done</ThemedText>
+            <TouchableOpacity onPress={handleSave} disabled={saving} accessibilityRole="button">
+              <ThemedText style={styles.completeText}>{saving ? 'Saving…' : 'Done'}</ThemedText>
             </TouchableOpacity>
           </View>
 
@@ -163,10 +162,18 @@ export default function JournalEntryScreen({ onClose, journalId, initialContent 
           {loading && <ActivityIndicator size="large" color="#007AFF" style={styles.loading} />}
         </View>
 
+        {saveError && (
+          <ErrorState compact testID="save-error" error={saveError} onRetry={handleSave} retrying={saving} />
+        )}
+        {feedbackError && (
+          <ErrorState compact testID="feedback-error" error={feedbackError} onRetry={getAiFeedback} retrying={loading} />
+        )}
+
         <View style={styles.footer}>
           <ButtonCTA
             title={aiFeedback.trim() === '' ? 'Get Feedback' : 'View Feedback'}
             onPress={aiFeedback.trim() === '' ? getAiFeedback : () => setShowFeedbackModal(true)}
+            disabled={loading}
           />
         </View>
 

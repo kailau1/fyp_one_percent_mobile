@@ -1,4 +1,4 @@
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, ActivityIndicator } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import ButtonCTA from '@/components/ui/ButtonCTA';
 import { useState } from 'react';
@@ -6,22 +6,24 @@ import { useRouter } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import InputFieldIcon from '@/components/InputFieldIcon';
 import { loginUser } from '@/scripts/services/userService';
+import { getErrorMessage } from '@/scripts/services/apiClient';
 import Header from '@/components/Header-Sub';
 import { useUser } from '@/context/UserContext';
 import { useHabits } from '@/context/HabitsContext';
-import { getUserHabits, Habit } from '@/scripts/services/habitService';
+import { useJournals } from '@/context/JournalsContext';
 
 export default function LoginScreen() {
   const router = useRouter();
   const colourScheme = useColorScheme();
   const iconColour = colourScheme === 'dark' ? '#fff' : '#000';
-  const { setUser, user } = useUser();
-  const { setHabits } = useHabits();
+  const { setUser } = useUser();
+  const { fetchHabits } = useHabits();
+  const { fetchJournals } = useJournals();
 
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string | null }>({});
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const validateInputs = () => {
     const newErrors: typeof errors = {};
@@ -33,14 +35,19 @@ export default function LoginScreen() {
 
   const callLoginUser = async () => {
     if (!validateInputs()) return;
+    setLoading(true);
     try {
-      const loggedInUser = await loginUser(email, password);
+      const loggedInUser = await loginUser(email.trim(), password);
       setUser(loggedInUser);
-      router.push('/main/dashboard');
+      // previously nothing was loaded after login, so habits/journals were empty until a restart
+      fetchHabits(loggedInUser.token);
+      fetchJournals(loggedInUser.token);
+      router.replace('/main/dashboard');
     } catch (error) {
-      const errorMsg = 'Login failed. Please try again.';
-      setErrorMessage(errorMsg);
-      setErrors((prev) => ({ ...prev, general: errorMsg }));
+      // e.g. "Incorrect email or password." vs "Can't reach the One Percent server…"
+      setErrors((prev) => ({ ...prev, general: getErrorMessage(error) }));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -50,6 +57,8 @@ export default function LoginScreen() {
       <InputFieldIcon
         placeholder="Enter your email"
         icon="mail"
+        autoCapitalize="none"
+        keyboardType="email-address"
         onChangeText={newText => setEmail(newText)}
       />
       <InputFieldIcon
@@ -61,10 +70,11 @@ export default function LoginScreen() {
       <ThemedView style={styles.errorContainer}>
         {errors.email && <Text style={styles.errorText}>* {errors.email}</Text>}
         {errors.password && <Text style={styles.errorText}>* {errors.password}</Text>}
-        {errors.general && <Text style={styles.errorText}>* {errors.general}</Text>}
+        {errors.general && <Text style={styles.errorText} testID="login-error">* {errors.general}</Text>}
       </ThemedView>
       <ThemedView style={styles.buttonContainer}>
-        <ButtonCTA onPress={callLoginUser} title='Login' />
+        {loading && <ActivityIndicator color="#74B7E2" style={styles.spinner} />}
+        <ButtonCTA onPress={callLoginUser} title={loading ? 'Logging in…' : 'Login'} disabled={loading} />
       </ThemedView>
     </ThemedView>
   );
@@ -84,6 +94,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     marginBottom: '4%',
+  },
+  spinner: {
+    marginBottom: 10,
   },
   errorContainer: {
     flexDirection: 'column',

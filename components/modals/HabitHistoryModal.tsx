@@ -1,10 +1,12 @@
-import React, { useEffect } from 'react';
-import { Modal, ScrollView, TouchableOpacity, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Modal, TouchableOpacity, StyleSheet, View, ActivityIndicator } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useHabits, HabitHistory } from '@/context/HabitsContext';
 import { Feather } from '@expo/vector-icons';
 import { calculateCurrentStreak, calculateLongestStreak } from '@/scripts/calculateStreak';
+import ErrorState from '@/components/ui/ErrorState';
+import { ApiError, toApiError } from '@/scripts/services/apiClient';
 
 interface HabitHistoryModalProps {
     visible: boolean;
@@ -24,11 +26,27 @@ export default function HabitHistoryModal({
     const streak = calculateCurrentStreak(history);
     const longestStreak = calculateLongestStreak(history);
 
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<ApiError | null>(null);
+
+    const load = useCallback(async () => {
+        if (!habitId) return;
+        setLoading(true);
+        setError(null);
+        try {
+            await fetchHabitHistory(habitId, token);
+        } catch (err) {
+            setError(toApiError(err));
+        } finally {
+            setLoading(false);
+        }
+    }, [fetchHabitHistory, habitId, token]);
+
     useEffect(() => {
         if (visible) {
-            fetchHabitHistory(habitId, token);
+            load();
         }
-    }, [visible, habitId, token]);
+    }, [visible, load]);
 
     const sortedHistory = [...history].sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -44,14 +62,23 @@ export default function HabitHistoryModal({
                             <Feather name="x" size={24} color="#007AFF" />
                         </TouchableOpacity>
                     </View>
+                    {error && <ErrorState compact testID="history-error" error={error} onRetry={load} retrying={loading} />}
+                    {loading && history.length === 0 && (
+                        <ActivityIndicator color="#007AFF" style={styles.loading} testID="history-loading" />
+                    )}
+                    {!loading && !error && history.length === 0 && (
+                        <ThemedText style={styles.infoText}>
+                            No history yet. Complete this habit today to start a streak!
+                        </ThemedText>
+                    )}
                     <View style={styles.streakSummary}>
                         <View style={styles.streakBox}>
                             <ThemedText style={styles.streakLabel}>Current Streak</ThemedText>
-                            <ThemedText style={styles.streakValue}>{streak}</ThemedText>
+                            <ThemedText style={styles.streakValue} testID="current-streak">{streak}</ThemedText>
                         </View>
                         <View style={styles.streakBox}>
                             <ThemedText style={styles.streakLabel}>Longest Streak</ThemedText>
-                            <ThemedText style={styles.streakValue}>{longestStreak}</ThemedText>
+                            <ThemedText style={styles.streakValue} testID="longest-streak">{longestStreak}</ThemedText>
                         </View>
                     </View>
 
@@ -104,8 +131,8 @@ const styles = StyleSheet.create({
         fontFamily: 'Comfortaa_700Bold',
         color: '#333',
     },
-    content: {
-        paddingVertical: 10,
+    loading: {
+        marginVertical: 20,
     },
     historyItem: {
         flexDirection: 'row',

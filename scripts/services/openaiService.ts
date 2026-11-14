@@ -1,101 +1,54 @@
-import Constants from 'expo-constants';
+import { AI_TIMEOUT_MS, apiRequest, toApiError } from './apiClient';
 
-const BASE_URL = Constants.expoConfig?.extra?.BASE_URL;
-
-
-export const fetchOpenAIResponse = async (journalId: string, journalContent: string, userId: string, token: string)
-    : Promise<{ error: string; response: string }> => {
-    try {
-        const response = await fetch(`${BASE_URL}/api/ai/feedback`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                journalId: journalId ?? null,
-                journalContent,
-                userId
-            }),
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to fetch OpenAI response');
-        }
-
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        if (error instanceof Error) {
-            return { error: error.message, response: '' };
-        } else {
-            return { error: 'An unknown error occurred', response: '' };
-        }
-    }
-
+/** Failure details for the { error, ... } results below. */
+function failure(error: unknown): { error: string; offline: boolean } {
+    const apiError = toApiError(error);
+    return { error: apiError.message, offline: apiError.isOffline };
 }
 
-export const fetchTipOfTheDay = async (token: string): Promise<{ error: string; response: string }> => {
+// These keep the original { error, ... } return shape (callers check `error`), but the
+// error is now a message that is safe to show the user, plus `offline` when the server
+// couldn't be reached.
+
+export const fetchOpenAIResponse = async (
+    journalId: string,
+    journalContent: string,
+    token: string,
+): Promise<{ error: string; offline?: boolean; response: string }> => {
     try {
-        const response = await fetch(`${BASE_URL}/api/ai/tip`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
+        // The user comes from the token on the server, so no userId is sent.
+        const data = await apiRequest<{ response?: string }>('/api/ai/feedback', {
+            method: 'POST',
+            token,
+            body: { journalId: journalId || null, journalContent },
+            timeoutMs: AI_TIMEOUT_MS,
         });
-        console.log("Tip of the Day URL:", `${BASE_URL}/api/ai/tip`);
-
-        if (!response.ok) {
-            throw new Error('Failed to fetch Tip of the Day');
-        }
-
-        const data = await response.json();
-        console.log("Tip of the Day:", data.response);
-        return { error: '', response: data.response };
+        return { error: '', response: data?.response ?? '' };
     } catch (error) {
-        if (error instanceof Error) {
-            return { error: error.message, response: '' };
-        } else {
-            return { error: 'An unknown error occurred', response: '' };
-        }
+        return { ...failure(error), response: '' };
     }
 };
 
+export const fetchTipOfTheDay = async (token: string): Promise<{ error: string; offline?: boolean; response: string }> => {
+    try {
+        const data = await apiRequest<{ response?: string }>('/api/ai/tip', { token, timeoutMs: AI_TIMEOUT_MS });
+        return { error: '', response: data?.response ?? '' };
+    } catch (error) {
+        return { ...failure(error), response: '' };
+    }
+};
 
 export const fetchJournalingPrompts = async (
     token: string,
     userId: string,
-): Promise<{ error: string; prompts: string[] }> => {
+): Promise<{ error: string; offline?: boolean; prompts: string[] }> => {
     try {
-        console.log("Fetching prompt at URL:", `${BASE_URL}/api/ai/prompt/${userId}`);
-        const response = await fetch(`${BASE_URL}/api/ai/prompt/${userId}`, {
-            method: 'GET',
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Failed to fetch prompts: ${response.status} - ${errorText}`);
-        }
-
-        const data = await response.json();
-        console.log('Fetched prompts:', data);
+        const data = await apiRequest<unknown>(`/api/ai/prompt/${userId}`, { token, timeoutMs: AI_TIMEOUT_MS });
         if (!Array.isArray(data)) {
-            throw new Error('Invalid server response: expected an array of prompts');
+            return { error: 'The server sent prompts in an unexpected format.', prompts: [] };
         }
-
-        return { error: '', prompts: data };
+        return { error: '', prompts: data.filter((p): p is string => typeof p === 'string' && p.trim() !== '') };
     } catch (error) {
-        if (error instanceof Error) {
-            console.error('[fetchJournalingPrompts] Error:', error.message);
-            return { error: error.message, prompts: [] };
-        } else {
-            console.error('[fetchJournalingPrompts] Unknown error:', error);
-            return { error: 'An unknown error occurred', prompts: [] };
-        }
+        return { ...failure(error), prompts: [] };
     }
 };

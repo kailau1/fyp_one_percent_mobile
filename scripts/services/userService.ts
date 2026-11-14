@@ -1,91 +1,63 @@
-import { Alert } from 'react-native';
-import { Router } from 'expo-router';
-import { User } from '@/context/UserContext';
 import { jwtDecode } from 'jwt-decode';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { User } from '@/context/UserContext';
+import { ApiError, apiRequest } from './apiClient';
 
-import Constants from 'expo-constants';
+interface DecodedToken {
+    userId: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+}
 
-const BASE_URL = Constants.expoConfig?.extra?.BASE_URL;
-
-export const createUser = async (
+/**
+ * Creates an account. Throws ApiError, e.g. with the server's
+ * "An account with this email already exists." message for a 400.
+ */
+export const registerUser = async (
     email: string,
     firstName: string,
     lastName: string,
     password: string,
-    router: Router,
-    setLoading: (loading: boolean) => void,
-    setUser: (user: User | null) => void
 ): Promise<void> => {
-    setLoading(true);
-    try {
-        const requestOptions = {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, firstName, lastName, password }),
-        };
-
-        console.log("URL:", `${BASE_URL}/api/users/register`);
-        const response = await fetch(`${BASE_URL}/api/users/register`, requestOptions);
-
-        if (!response.ok) {
-            const errorMessage = await response.text();
-            Alert.alert('Error', errorMessage);
-            return;
-        }
-        const data = await response.json();
-        Alert.alert('Success', 'Account created successfully!');
-        setUser(data);
-        router.push('../../main/dashboard?fresh=true');
-    } catch (error) {
-        console.error(error);
-        Alert.alert('Error', 'Something went wrong. Please try again.');
-    } finally {
-        setLoading(false);
-    }
+    await apiRequest('/api/users/register', { method: 'POST', body: { email, firstName, lastName, password } });
 };
 
-export const loginUser = async (email: string, password: string) => {
-
+/** Logs in, stores the session and returns the user. Throws ApiError on failure. */
+export const loginUser = async (email: string, password: string): Promise<User> => {
+    let data: { token: string };
     try {
-        console.log("URL:", `${BASE_URL}/api/users/login`);
-        const response = await fetch(`${BASE_URL}/api/users/login`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ email, password }),
-        });
-
-        if (!response.ok) {
-            throw new Error("Failed to login");
-        }
-
-        const data = await response.json();
-        const token = data.token;
-
-        interface DecodedToken {
-            id: string;
-            userId: string;
-            email: string;
-            firstName: string;
-            lastName: string;
-        }
-
-        const decodedToken = jwtDecode<DecodedToken>(token);
-
-        const user = {
-            id: decodedToken.userId,
-            email: decodedToken.email,
-            firstName: decodedToken.firstName,
-            lastName: decodedToken.lastName,
-            token: token,
-        };
-        await AsyncStorage.setItem('user', JSON.stringify(user));
-
-        return user;
+        data = await apiRequest<{ token: string }>('/api/users/login', { method: 'POST', body: { email, password } });
     } catch (error) {
-        console.error("Login error:", error);
+        // On the login endpoint a 401 means bad credentials, not an expired session.
+        if (error instanceof ApiError && error.kind === 'unauthorized') {
+            throw new ApiError('unauthorized', 'Incorrect email or password.', error.status);
+        }
         throw error;
     }
+
+    const decoded = jwtDecode<DecodedToken>(data.token);
+    const user: User = {
+        id: decoded.userId,
+        email: decoded.email,
+        firstName: decoded.firstName,
+        lastName: decoded.lastName,
+        token: data.token,
+    };
+    await AsyncStorage.setItem('user', JSON.stringify(user));
+    return user;
+};
+
+/**
+ * Registers then logs straight in. The register endpoint doesn't return a token, so
+ * previously a new user landed on the dashboard unauthenticated and every call failed.
+ */
+export const registerAndLogin = async (
+    email: string,
+    firstName: string,
+    lastName: string,
+    password: string,
+): Promise<User> => {
+    await registerUser(email, firstName, lastName, password);
+    return loginUser(email, password);
 };

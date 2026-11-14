@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, Alert } from 'react-native';
+import { StyleSheet, View, Text } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import ButtonCTA from '@/components/ui/ButtonCTA';
 import InputFieldIcon from '@/components/InputFieldIcon';
 import Header from '@/components/Header-Sub';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { createUser } from '@/scripts/services/userService';
+import { registerAndLogin } from '@/scripts/services/userService';
+import { getErrorMessage } from '@/scripts/services/apiClient';
 import { useUser } from '@/context/UserContext';
 
 const SignUpScreen: React.FC = () => {
@@ -21,7 +22,7 @@ const SignUpScreen: React.FC = () => {
     const [password, setPassword] = useState<string>('');
     const [loading, setLoading] = useState<boolean>(false);
 
-    const [errors, setErrors] = useState<{ email?: string; firstName?: string; lastName?: string; password?: string }>({});
+    const [errors, setErrors] = useState<{ email?: string; firstName?: string; lastName?: string; password?: string; general?: string }>({});
 
     const validateInputs = () => {
         const newErrors: typeof errors = {};
@@ -35,7 +36,17 @@ const SignUpScreen: React.FC = () => {
 
     const callCreateUser = async () => {
         if (!validateInputs()) return;
-        await createUser(email, firstName, lastName, password, router, setLoading, setUser);
+        setLoading(true);
+        try {
+            const user = await registerAndLogin(email.trim(), firstName.trim(), lastName.trim(), password);
+            setUser(user);
+            router.replace('/main/dashboard?fresh=true');
+        } catch (error) {
+            // e.g. "An account with this email already exists." or "Can't reach the server…"
+            setErrors((prev) => ({ ...prev, general: getErrorMessage(error) }));
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -44,6 +55,8 @@ const SignUpScreen: React.FC = () => {
             <InputFieldIcon
                 placeholder="Enter your email"
                 icon="mail"
+                autoCapitalize="none"
+                keyboardType="email-address"
                 onChangeText={newText => setEmail(newText)}
             />
             <InputFieldIcon
@@ -69,9 +82,10 @@ const SignUpScreen: React.FC = () => {
                 {errors.firstName && <Text style={styles.errorText}>* {errors.firstName}</Text>}
                 {errors.lastName && <Text style={styles.errorText}>* {errors.lastName}</Text>}
                 {errors.password && <Text style={styles.errorText}>* {errors.password}</Text>}
+                {errors.general && <Text style={styles.errorText} testID="signup-error">* {errors.general}</Text>}
             </ThemedView>
             <ThemedView style={styles.buttonContainer}>
-                <ButtonCTA onPress={callCreateUser} title="Continue" disabled={loading} />
+                <ButtonCTA onPress={callCreateUser} title={loading ? 'Creating account…' : 'Continue'} disabled={loading} />
             </ThemedView>
         </ThemedView>
     );

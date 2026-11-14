@@ -7,7 +7,6 @@ import { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useUser } from '@/context/UserContext';
 import { useHabits } from '@/context/HabitsContext';
-import { getUserHabits } from '@/scripts/services/habitService';
 import { useJournals } from '@/context/JournalsContext';
 
 export default function LandingScreen() {
@@ -25,8 +24,10 @@ export default function LandingScreen() {
           const parsedUser = JSON.parse(stored);
           setUser(parsedUser);
 
-          await fetchHabits(parsedUser.token);
-          await fetchJournals(parsedUser.token);
+          // Don't wait on the network here: if the server is unreachable the dashboard
+          // shows an error with a retry button instead of a spinner stuck on this screen.
+          fetchHabits(parsedUser.token);
+          fetchJournals(parsedUser.token);
 
           router.replace('/main/dashboard');
         } else {

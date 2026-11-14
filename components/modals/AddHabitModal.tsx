@@ -8,6 +8,7 @@ import ButtonCTA from '@/components/ui/ButtonCTA';
 import { useUser } from '@/context/UserContext';
 import { useHabits } from '@/context/HabitsContext';
 import { createHabit } from '@/scripts/services/habitService';
+import { getErrorMessage } from '@/scripts/services/apiClient';
 
 interface AddHabitModalProps {
   visible: boolean;
@@ -16,7 +17,7 @@ interface AddHabitModalProps {
 
 export default function AddHabitModal({ visible, onClose }: AddHabitModalProps) {
   const { user } = useUser();
-  const { habits, setHabits } = useHabits();
+  const { setHabits } = useHabits();
   const colourScheme = useColorScheme();
   const iconColour = colourScheme === 'dark' ? '#fff' : '#000';
   const colourCodes: string[] = [
@@ -39,50 +40,43 @@ export default function AddHabitModal({ visible, onClose }: AddHabitModalProps) 
   const [action, setAction] = useState('');
   const [selectedColor, setSelectedColor] = useState(colourCodes[0]);
 
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
   const handleCreateHabit = async () => {
-    if (!user || !user.id) {
-      console.log('User not logged in');
+    if (!user?.id) return;
+    setFormError(null);
+
+    const isStandard = habitType === 'standard';
+    if (isStandard && (!habitName.trim() || !habitDescription.trim())) {
+      setFormError('Please enter a name and a description.');
       return;
     }
-  
-    if (habitType === 'standard') {
-      if (!habitName || !habitDescription) {
-        console.log('Please fill in all fields for a standard habit');
-        return;
-      }
+    if (!isStandard && (!trigger.trim() || !action.trim())) {
+      setFormError('Please fill in both the trigger and the action.');
+      return;
+    }
+
+    setSaving(true);
+    try {
       const newHabit = await createHabit(
         user.id,
-        habitName,
-        habitDescription,
-        false,
-        selectedColor,
-        user.token,
-        habitType
-      );
-      if (newHabit) {
-        setHabits([...habits, newHabit]);
-        onClose();
-      }
-    } else if (habitType === 'trigger-action') {
-      if (!trigger || !action) {
-        console.log('Please fill in both trigger and action for a trigger-action habit');
-        return;
-      }
-      const newHabit = await createHabit(
-        user.id,
-        '', 
-        '',
+        isStandard ? habitName : '',
+        isStandard ? habitDescription : '',
         false,
         selectedColor,
         user.token,
         habitType,
-        trigger,
-        action
+        isStandard ? undefined : trigger,
+        isStandard ? undefined : action,
       );
-      if (newHabit) {
-        setHabits([...habits, newHabit]);
-        onClose();
-      }
+      setHabits((prev) => [...prev, newHabit]);
+      onClose();
+    } catch (error) {
+      // keep the modal open so nothing the user typed is lost
+      setFormError(getErrorMessage(error));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -168,7 +162,16 @@ export default function AddHabitModal({ visible, onClose }: AddHabitModalProps) 
                 />
               ))}
             </ScrollView>
-            <ButtonCTA title="Create New Habit" onPress={handleCreateHabit} />
+            {formError && (
+              <Text style={styles.errorText} testID="add-habit-error" accessibilityRole="alert">
+                {formError}
+              </Text>
+            )}
+            <ButtonCTA
+              title={saving ? 'Saving…' : 'Create New Habit'}
+              onPress={handleCreateHabit}
+              disabled={saving}
+            />
           </ScrollView>
         </ThemedView>
       </View>
@@ -228,5 +231,12 @@ const styles = StyleSheet.create({
     height: 60,
     width: 60,
     margin: '1%',
+  },
+  errorText: {
+    color: '#C62828',
+    fontSize: 14,
+    fontFamily: 'Comfortaa_400Regular',
+    textAlign: 'center',
+    marginBottom: 10,
   },
 });
