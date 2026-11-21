@@ -1,5 +1,3 @@
-import { ComingSoon } from '@/components/layout/ComingSoon'
+import { InsightsScreen } from '@/features/insights/InsightsScreen'
 
-export default function InsightsTab() {
-  return <ComingSoon title="Insights" />
-}
+export default InsightsScreen

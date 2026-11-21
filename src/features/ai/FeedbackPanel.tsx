@@ -1,3 +1,4 @@
+import { router } from 'expo-router'
 import { Sparkles } from 'lucide-react-native'
 import { View } from 'react-native'
 import { ErrorState } from '@/components/ErrorState'
@@ -70,6 +71,9 @@ export function FeedbackPanel({ feedback, isPending, error, onRequest, nothingTo
                 Write something first.
               </Text>
             )}
+            <Button variant="link" size="sm" onPress={() => router.push('/about-you')} style={{ marginTop: 16 }}>
+              What the AI knows about you
+            </Button>
           </>
         )}
       </View>

@@ -1,3 +1,4 @@
+import { router } from 'expo-router'
 import { LogOut } from 'lucide-react-native'
 import type { ReactNode } from 'react'
 import { StyleSheet, View } from 'react-native'
@@ -54,6 +55,16 @@ export function AccountScreen() {
         <Row label="Time zone">
           <TimeZone />
         </Row>
+      </View>
+
+      <View style={styles.section}>
+        <Text variant="heading" role="heading" aria-level={2}>
+          What One Percent knows
+        </Text>
+        <Text tone="muted">See and change the context the AI is given about you when it gives feedback.</Text>
+        <Button variant="secondary" onPress={() => router.push('/about-you')}>
+          Open
+        </Button>
       </View>
 
       <View style={styles.section}>
