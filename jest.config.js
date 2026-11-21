@@ -13,13 +13,13 @@ module.exports = {
   // complete in whole-app tests.
   fakeTimers: { advanceTimers: true, doNotFake: ['nextTick', 'queueMicrotask', 'setImmediate', 'clearImmediate'] },
   // whole-app tests render every route and layout; the first one in a file also compiles them
-  testTimeout: 15000,
+  testTimeout: 30000,
   setupFiles: ['<rootDir>/src/test/fetch.js'],
   setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts'],
   globalSetup: '<rootDir>/src/test/globalSetup.js',
   // node_modules aren't compiled, except React Native/Expo packages (shipped as untranspiled JS) and
   // any .mjs file (the pattern below only matches .js/.ts files, so .mjs files are always transformed)
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|lucide-react-native|msw|@msw/.*|@mswjs/.*|until-async|@open-draft/until|cookie|standard-navigation).+\\.[jt]sx?$',
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|lucide-react-native|msw|@msw/.*|@mswjs/.*|until-async|@open-draft/until|cookie|standard-navigation|@ronradtke/.*).+\\.[jt]sx?$',
   ],
 }

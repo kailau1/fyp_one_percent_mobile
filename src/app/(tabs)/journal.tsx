@@ -1,5 +1,3 @@
-import { ComingSoon } from '@/components/layout/ComingSoon'
+import { JournalScreen } from '@/features/journal/JournalScreen'
 
-export default function JournalTab() {
-  return <ComingSoon title="Journal" />
-}
+export default JournalScreen
