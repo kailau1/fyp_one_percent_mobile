@@ -1,5 +1,3 @@
-import { ComingSoon } from '@/components/layout/ComingSoon'
+import { TodayScreen } from '@/features/today/TodayScreen'
 
-export default function TodayTab() {
-  return <ComingSoon title="Today" />
-}
+export default TodayScreen
