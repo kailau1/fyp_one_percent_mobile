@@ -1,5 +1,3 @@
-import { ComingSoon } from '@/components/layout/ComingSoon'
+import { HabitsScreen } from '@/features/habits/HabitsScreen'
 
-export default function HabitsTab() {
-  return <ComingSoon title="Habits" />
-}
+export default HabitsScreen
