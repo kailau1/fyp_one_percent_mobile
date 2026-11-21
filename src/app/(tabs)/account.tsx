@@ -1,5 +1,3 @@
-import { ComingSoon } from '@/components/layout/ComingSoon'
+import { AccountScreen } from '@/features/account/AccountScreen'
 
-export default function AccountTab() {
-  return <ComingSoon title="Account" />
-}
+export default AccountScreen

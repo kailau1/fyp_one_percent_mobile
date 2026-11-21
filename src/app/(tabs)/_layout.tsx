@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router'
 import { BookOpenText, CircleUserRound, Lightbulb, ListChecks, SunMedium } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useTimeZoneSync } from '@/features/account/hooks'
 import { useTheme } from '@/theme/ThemeProvider'
 import { fonts } from '@/theme/tokens'
 
@@ -8,6 +9,8 @@ import { fonts } from '@/theme/tokens'
 export default function TabsLayout() {
   const { colors } = useTheme()
   const insets = useSafeAreaInsets()
+  // keep the server's "today" in step with this phone's time zone (the web does this in its app shell)
+  useTimeZoneSync()
   return (
     <Tabs
       screenOptions={{

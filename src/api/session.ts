@@ -14,7 +14,8 @@ let onExpired: Listener | null = null
 
 export async function hydrateSession(): Promise<void> {
   try {
-    token = await SecureStore.getItemAsync(TOKEN_KEY)
+    // a token set before this finished (only ever in tests) wins over the stored one
+    token = token ?? (await SecureStore.getItemAsync(TOKEN_KEY))
   } catch {
     token = null
   }

@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { AppState, Platform } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { createQueryClient } from '@/api/queryClient'
+import { AuthProvider } from '@/features/auth/AuthProvider'
 import { ThemeProvider } from '@/theme/ThemeProvider'
 import { ToastHost } from './ui/Toast'
 
@@ -21,17 +22,19 @@ function useAppFocus() {
   }, [])
 }
 
-/** Everything every screen needs: data cache, theme, safe areas and toasts. */
+/** Everything every screen needs: data cache, who's logged in, theme, safe areas and toasts. */
 export function AppProviders({ children }: { children: ReactNode }) {
   const [queryClient] = useState(createQueryClient)
   useAppFocus()
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          {children}
-          <ToastHost />
-        </ThemeProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            {children}
+            <ToastHost />
+          </ThemeProvider>
+        </AuthProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
   )
