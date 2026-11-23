@@ -9,6 +9,7 @@ import { Segmented } from '@/components/ui/Segmented'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { Text } from '@/components/ui/Text'
 import { useAuth, useUser } from '@/features/auth/useAuth'
+import { ExportSection } from '@/features/export/ExportSection'
 import { useTheme, type ThemeMode } from '@/theme/ThemeProvider'
 import { useProfile } from './hooks'
 
@@ -65,6 +66,10 @@ export function AccountScreen() {
         <Button variant="secondary" onPress={() => router.push('/about-you')}>
           Open
         </Button>
+      </View>
+
+      <View style={styles.section}>
+        <ExportSection />
       </View>
 
       <View style={styles.section}>

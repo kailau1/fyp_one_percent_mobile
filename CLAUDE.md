@@ -1,8 +1,8 @@
 # CLAUDE.md
 
-One Percent mobile app: React Native / Expo (SDK 58, Expo Router, TypeScript strict). It is being rebuilt
-to match the web app (`~/projects/one_percent_web`) screen by screen; the plan is the top section of
-`~/.claude/plans/pasted-content-id-8bd5-i-d-like-iterative-matsumoto.md`.
+One Percent mobile app: React Native / Expo (SDK 58, Expo Router, TypeScript strict), rebuilt in Nov 2026 to
+match the web app (`~/projects/one_percent_web`) in design and features. Keep them in step: a web change
+usually has a mobile counterpart.
 The backend is a separate repo at `~/projects/one_percent_spring` (remote `fyp_one_percent_spring`).
 Work in this copy (`~/projects/one_percent_mobile`, Linux filesystem); the old copy on `/mnt/c` is only a backup.
 
@@ -31,7 +31,9 @@ Work in this copy (`~/projects/one_percent_mobile`, Linux filesystem); the old c
 
 - `src/app/`: Expo Router routes only (every file is a screen); they import screens from `src/features/<feature>/`.
 - `src/features/<feature>/`: `api.ts` (plain calls) → `hooks.ts` (TanStack Query) → screens/components.
-  Pure modules (types, streaks, dates, trends, drafts, markdown) are copied from the web app unchanged.
+  Pure modules (types, streaks, dates, trends, drafts, markdown) are copied from the web app unchanged;
+  `src/api/types.ts` and `src/test/msw/{db,handlers}.ts` must stay identical to the web's (see the
+  `api-contract-sync` skill).
 - All API calls go through `src/api/client.ts` (`apiRequest`), which throws `ApiError`. Show failures with
   `ErrorState` (or `toast.error(getErrorMessage(error))`), never silently.
 - Colours, fonts, radii and spacing come from `src/theme/tokens.ts` (the web's exact values) via `useTheme()`;
@@ -42,3 +44,7 @@ Work in this copy (`~/projects/one_percent_mobile`, Linux filesystem); the old c
 - Tests sit next to the code (`*.test.tsx`), use `renderWithProviders` from `src/test/render.tsx`, and fake
   the API with the web app's MSW handlers (`src/test/msw/`, keep in step with the web copies). Testing
   Library 14 is async: `await render(...)`, `await fireEvent.press(...)`. Tests run in Europe/London time.
+- Testing gotchas: whole-app tests use `renderApp(url)` (`src/test/app.tsx`); Testing Library only finds
+  `group`/`menu`/`progressbar` roles on `accessible` views; never put `x.value` inside a `style` (Reanimated's
+  Babel plugin mistakes it for an animated value); the first test after a `jest.config.js` change compiles
+  everything and can time out once.
