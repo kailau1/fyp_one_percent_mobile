@@ -24,7 +24,7 @@ describe('route protection', () => {
   it('keeps you logged in when the app opens again', async () => {
     signIn()
     await renderApp('/')
-    expect(await screen.findByRole('heading', { name: 'Today' })).toBeOnTheScreen()
+    expect(await screen.findByRole('heading', { name: 'Today’s habits' })).toBeOnTheScreen()
   })
 
   it('treats an expired stored token as logged out and says why', async () => {
@@ -57,7 +57,7 @@ describe('logging in', () => {
     const result = await renderApp('/')
     await fillLogin(testUser.email, CORRECT_PASSWORD)
 
-    expect(await screen.findByRole('heading', { name: 'Today' })).toBeOnTheScreen()
+    expect(await screen.findByRole('heading', { name: 'Today’s habits' })).toBeOnTheScreen()
     expect(result.getPathname()).toBe('/')
     expect(session.getToken()).not.toBeNull()
   })
@@ -110,7 +110,7 @@ describe('signing up', () => {
     await fireEvent.press(await screen.findByRole('button', { name: 'Create an account' }))
     await fillSignup()
 
-    expect(await screen.findByRole('heading', { name: 'Today' })).toBeOnTheScreen()
+    expect(await screen.findByRole('heading', { name: 'Today’s habits' })).toBeOnTheScreen()
   })
 
   it('shows "email already exists" next to the email field', async () => {
