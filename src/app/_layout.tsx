@@ -41,6 +41,7 @@ function Navigation() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="journal/[id]" />
           <Stack.Screen name="journal/new" />
+          <Stack.Screen name="habits/[id]" />
         </Stack.Protected>
         <Stack.Protected guard={user === null}>
           <Stack.Screen name="login" />
