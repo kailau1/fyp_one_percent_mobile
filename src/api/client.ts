@@ -87,7 +87,8 @@ export async function apiRequest<T = unknown>(
   path: string,
   { method = 'GET', body, timeoutMs = DEFAULT_TIMEOUT_MS, auth = true }: RequestOptions = {},
 ): Promise<T> {
-  const baseUrl = Constants.expoConfig?.extra?.BASE_URL as string | undefined
+  // EXPO_PUBLIC_API_URL (set when starting Expo) overrides app.json's BASE_URL, e.g. for the web preview
+  const baseUrl = process.env.EXPO_PUBLIC_API_URL || (Constants.expoConfig?.extra?.BASE_URL as string | undefined)
   if (!baseUrl) throw new ApiError('config')
 
   const token = auth ? session.getToken() : null

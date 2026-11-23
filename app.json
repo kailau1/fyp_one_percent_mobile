@@ -8,7 +8,7 @@
     "scheme": "onepercent",
     "userInterfaceStyle": "automatic",
     "extra": {
-      "BASE_URL": "http://192.168.1.101:8084"
+      "BASE_URL": "http://192.168.1.23:8084"
     },
     "ios": {
       "supportsTablet": true
