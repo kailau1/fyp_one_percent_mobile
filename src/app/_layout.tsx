@@ -39,6 +39,8 @@ function Navigation() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.paper } }}>
         <Stack.Protected guard={user !== null}>
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="journal/[id]" />
+          <Stack.Screen name="journal/new" />
         </Stack.Protected>
         <Stack.Protected guard={user === null}>
           <Stack.Screen name="login" />

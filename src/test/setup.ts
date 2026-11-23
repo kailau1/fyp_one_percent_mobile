@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- jest.mock factories must use require() */
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import Constants from 'expo-constants'
 import { cleanup } from '@testing-library/react-native'
 import { session } from '@/api/session'
@@ -19,7 +20,9 @@ jest.mock('@react-native-community/netinfo', () => require('@react-native-commun
 
 // Any request a test doesn't explicitly mock is a mistake: fail loudly rather than hit a real server.
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
-afterEach(() => {
+afterEach(async () => {
+  // the device storage mock outlives a test; clear it so one test's drafts can't appear in the next
+  await AsyncStorage.clear()
   cleanup()
   server.resetHandlers()
   resetDb()
